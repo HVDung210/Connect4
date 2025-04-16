@@ -20,7 +20,7 @@ app.add_middleware(
 ROWS = 6
 COLS = 7
 WIN_LENGTH = 4
-MAX_DEPTH = 5  # Độ sâu tối đa cho thuật toán Minimax
+MAX_DEPTH = 6  # Giữ độ sâu 6 từ cải tiến trước
 
 class GameState(BaseModel):
     board: List[List[int]]
@@ -41,49 +41,107 @@ class Connect4AI:
         score = 0
         
         if window.count(player) == 4:
-            score += 100
+            score += 100000  # Tăng trọng số
         elif window.count(player) == 3 and window.count(0) == 1:
-            score += 5
+            score += 100     # Tăng trọng số
         elif window.count(player) == 2 and window.count(0) == 2:
-            score += 2
+            score += 10      # Tăng trọng số
             
         if window.count(opponent) == 3 and window.count(0) == 1:
-            score -= 4
+            score -= 80      # Phạt nặng hơn
             
         return score
+
+    @staticmethod
+    def get_winning_lines() -> List[List[Tuple[int, int]]]:
+        """Lấy tất cả các đường có thể thắng"""
+        lines = []
+        # Horizontal
+        for r in range(ROWS):
+            for c in range(COLS - 3):
+                lines.append([(r, c + i) for i in range(4)])
+        # Vertical
+        for c in range(COLS):
+            for r in range(ROWS - 3):
+                lines.append([(r + i, c) for i in range(4)])
+        # Diagonal /
+        for r in range(ROWS - 3):
+            for c in range(COLS - 3):
+                lines.append([(r + i, c + i) for i in range(4)])
+        # Diagonal \
+        for r in range(3, ROWS):
+            for c in range(COLS - 3):
+                lines.append([(r - i, c + i) for i in range(4)])
+        return lines
+
+    @staticmethod
+    def count_open_threes(board: List[List[int]], player: int) -> int:
+        """Đếm số lượng 'open threes' cho người chơi"""
+        count = 0
+        winning_lines = Connect4AI.get_winning_lines()
+        for line in winning_lines:
+            pieces = [board[r][c] for r, c in line]
+            if pieces.count(player) == 3 and pieces.count(0) == 1:
+                # Find the empty position
+                for idx, piece in enumerate(pieces):
+                    if piece == 0:
+                        r, c = line[idx]
+                        # Check if this is the lowest empty row in column c
+                        r_empty = Connect4AI.get_next_open_row(board, c)
+                        if r_empty == r:
+                            count += 1
+                            break
+        return count
 
     @staticmethod
     def evaluate_position(board: List[List[int]], player: int) -> int:
         """Đánh giá toàn bộ bảng cho người chơi hiện tại"""
         score = 0
         
-        # Ưu tiên cột giữa
-        center_column = [board[r][COLS//2] for r in range(ROWS)]
-        score += center_column.count(player) * 3
+        # Ưu tiên cột giữa (cột 4: +3, cột 3 và 5: +2)
+        for c in range(COLS):
+            for r in range(ROWS):
+                if board[r][c] == player:
+                    if c == 3:  # Cột 4
+                        score += 3
+                    elif c in [2, 4]:  # Cột 3 và 5
+                        score += 2
         
         # Đánh giá hàng ngang
         for r in range(ROWS):
-            for c in range(COLS - WIN_LENGTH + 1):
-                window = [board[r][c+i] for i in range(WIN_LENGTH)]
+            for c in range(COLS - 3):
+                window = [board[r][c + i] for i in range(4)]
                 score += Connect4AI.evaluate_window(window, player)
         
         # Đánh giá hàng dọc
         for c in range(COLS):
-            for r in range(ROWS - WIN_LENGTH + 1):
-                window = [board[r+i][c] for i in range(WIN_LENGTH)]
+            for r in range(ROWS - 3):
+                window = [board[r + i][c] for i in range(4)]
                 score += Connect4AI.evaluate_window(window, player)
         
-        # Đánh giá đường chéo xuống
-        for r in range(ROWS - WIN_LENGTH + 1):
-            for c in range(COLS - WIN_LENGTH + 1):
-                window = [board[r+i][c+i] for i in range(WIN_LENGTH)]
+        # Đánh giá đường chéo /
+        for r in range(ROWS - 3):
+            for c in range(COLS - 3):
+                window = [board[r + i][c + i] for i in range(4)]
                 score += Connect4AI.evaluate_window(window, player)
         
-        # Đánh giá đường chéo lên
-        for r in range(WIN_LENGTH - 1, ROWS):
-            for c in range(COLS - WIN_LENGTH + 1):
-                window = [board[r-i][c+i] for i in range(WIN_LENGTH)]
+        # Đánh giá đường chéo \
+        for r in range(3, ROWS):
+            for c in range(COLS - 3):
+                window = [board[r - i][c + i] for i in range(4)]
                 score += Connect4AI.evaluate_window(window, player)
+        
+        # Đánh giá các mối đe dọa (open threes)
+        player_threes = Connect4AI.count_open_threes(board, player)
+        opponent = 3 - player
+        opponent_threes = Connect4AI.count_open_threes(board, opponent)
+        
+        if player_threes >= 2:
+            score += 10000  # Tăng trọng số
+        elif opponent_threes >= 2:
+            score -= 10000  # Tăng trọng số
+        else:
+            score += player_threes * 100 - opponent_threes * 100  # Tăng trọng số
         
         return score
 
