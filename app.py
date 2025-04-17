@@ -72,6 +72,112 @@ class Connect4AI:
         return score
 
     @staticmethod
+    def detect_xxox_pattern(board: List[List[int]], player: int) -> List[Tuple[int, int]]:
+        """Phát hiện mẫu XX_X hoặc X_XX cho người chơi"""
+        threat_positions = []
+        
+        # Kiểm tra tất cả các hướng: ngang, dọc, và 2 đường chéo
+        # Horizontal
+        for r in range(ROWS):
+            for c in range(COLS - 3):
+                # Kiểm tra XX_X
+                if (c + 3 < COLS and 
+                    board[r][c] == player and 
+                    board[r][c+1] == player and 
+                    board[r][c+2] == 0 and 
+                    board[r][c+3] == player):
+                    # Kiểm tra xem ô trống có đặt được không
+                    empty_col = c + 2
+                    empty_row = r
+                    # Nếu không phải hàng cuối, kiểm tra xem có ô trống bên dưới không
+                    if r < ROWS - 1:
+                        if board[r+1][empty_col] != 0:  # Có quân cờ bên dưới
+                            threat_positions.append((empty_row, empty_col))
+                    else:  # Ở hàng cuối
+                        threat_positions.append((empty_row, empty_col))
+                
+                # Kiểm tra X_XX
+                if (c + 3 < COLS and 
+                    board[r][c] == player and 
+                    board[r][c+1] == 0 and 
+                    board[r][c+2] == player and 
+                    board[r][c+3] == player):
+                    # Kiểm tra xem ô trống có đặt được không
+                    empty_col = c + 1
+                    empty_row = r
+                    # Nếu không phải hàng cuối, kiểm tra xem có ô trống bên dưới không
+                    if r < ROWS - 1:
+                        if board[r+1][empty_col] != 0:  # Có quân cờ bên dưới
+                            threat_positions.append((empty_row, empty_col))
+                    else:  # Ở hàng cuối
+                        threat_positions.append((empty_row, empty_col))
+        
+        # Vertical - chỉ có thể là X_XX từ dưới lên, XX_X không thể có từ dưới lên
+        for c in range(COLS):
+            for r in range(ROWS - 3):
+                # Không cần kiểm tra XX_X vì quân cờ không thể lơ lửng
+                
+                # Kiểm tra X_XX (từ dưới lên)
+                if (board[r][c] == player and 
+                    board[r+1][c] == 0 and 
+                    board[r+2][c] == player and 
+                    board[r+3][c] == player):
+                    # Vị trí này chắc chắn đặt được vì có quân phía dưới
+                    threat_positions.append((r+1, c))
+        
+        # Diagonal /
+        for r in range(ROWS - 3):
+            for c in range(COLS - 3):
+                # Kiểm tra XX_X
+                if (board[r][c] == player and 
+                    board[r+1][c+1] == player and 
+                    board[r+2][c+2] == 0 and 
+                    board[r+3][c+3] == player):
+                    empty_row = r + 2
+                    empty_col = c + 2
+                    # Kiểm tra nếu có thể đặt tại vị trí trống
+                    if empty_row == ROWS - 1 or board[empty_row+1][empty_col] != 0:
+                        threat_positions.append((empty_row, empty_col))
+                
+                # Kiểm tra X_XX
+                if (board[r][c] == player and 
+                    board[r+1][c+1] == 0 and 
+                    board[r+2][c+2] == player and 
+                    board[r+3][c+3] == player):
+                    empty_row = r + 1
+                    empty_col = c + 1
+                    # Kiểm tra nếu có thể đặt tại vị trí trống
+                    if empty_row == ROWS - 1 or board[empty_row+1][empty_col] != 0:
+                        threat_positions.append((empty_row, empty_col))
+        
+        # Diagonal \
+        for r in range(3, ROWS):
+            for c in range(COLS - 3):
+                # Kiểm tra XX_X
+                if (board[r][c] == player and 
+                    board[r-1][c+1] == player and 
+                    board[r-2][c+2] == 0 and 
+                    board[r-3][c+3] == player):
+                    empty_row = r - 2
+                    empty_col = c + 2
+                    # Kiểm tra nếu có thể đặt tại vị trí trống
+                    if empty_row == ROWS - 1 or board[empty_row+1][empty_col] != 0:
+                        threat_positions.append((empty_row, empty_col))
+                
+                # Kiểm tra X_XX
+                if (board[r][c] == player and 
+                    board[r-1][c+1] == 0 and 
+                    board[r-2][c+2] == player and 
+                    board[r-3][c+3] == player):
+                    empty_row = r - 1
+                    empty_col = c + 1
+                    # Kiểm tra nếu có thể đặt tại vị trí trống
+                    if empty_row == ROWS - 1 or board[empty_row+1][empty_col] != 0:
+                        threat_positions.append((empty_row, empty_col))
+                        
+        return threat_positions
+
+    @staticmethod
     def count_open_threes(board: List[List[int]], player: int) -> int:
         """Đếm số lượng 'open threes' cho người chơi"""
         count = 0
@@ -131,6 +237,13 @@ class Connect4AI:
         score -= opponent_threes * 1000
         if opponent_threes >= 2:
             score -= 20000
+        
+        # Đánh giá mẫu XX_X và X_XX
+        player_xxox_patterns = Connect4AI.detect_xxox_pattern(board, player)
+        opponent_xxox_patterns = Connect4AI.detect_xxox_pattern(board, opponent)
+        
+        score += len(player_xxox_patterns) * 5000
+        score -= len(opponent_xxox_patterns) * 5000
         
         return score
 
@@ -228,6 +341,28 @@ class Connect4AI:
                     break
             return (value, best_move)
 
+    @staticmethod
+    def find_xxox_threats(board: List[List[int]], player: int) -> Optional[int]:
+        """Tìm nước đi để chặn hoặc tạo mẫu XX_X/X_XX"""
+        # Tìm mẫu có thể thắng của mình (XX_X hoặc X_XX)
+        player_threats = Connect4AI.detect_xxox_pattern(board, player)
+        if player_threats:
+            for row, col in player_threats:
+                # Kiểm tra xem có phải là nước đi tiếp theo hợp lệ không
+                if Connect4AI.get_next_open_row(board, col) == row:
+                    return col
+        
+        # Tìm mẫu cần chặn của đối thủ (XX_X hoặc X_XX)
+        opponent = 3 - player
+        opponent_threats = Connect4AI.detect_xxox_pattern(board, opponent)
+        if opponent_threats:
+            for row, col in opponent_threats:
+                # Kiểm tra xem có phải là nước đi tiếp theo hợp lệ không
+                if Connect4AI.get_next_open_row(board, col) == row:
+                    return col
+        
+        return None
+
 @app.post("/api/connect4-move")
 async def make_move(game_state: GameState) -> AIResponse:
     try:
@@ -236,6 +371,7 @@ async def make_move(game_state: GameState) -> AIResponse:
         
         start_time = time.time()
         
+        # Kiểm tra nước thắng ngay lập tức
         for col in game_state.valid_moves:
             new_board, row = Connect4AI.make_move(game_state.board, col, game_state.current_player)
             if row != -1 and Connect4AI.check_winner(new_board) == game_state.current_player:
@@ -246,6 +382,7 @@ async def make_move(game_state: GameState) -> AIResponse:
                     execution_time=time.time() - start_time
                 )
         
+        # Kiểm tra nước chặn thắng của đối thủ
         opponent = 3 - game_state.current_player
         for col in game_state.valid_moves:
             new_board, row = Connect4AI.make_move(game_state.board, col, opponent)
@@ -257,6 +394,17 @@ async def make_move(game_state: GameState) -> AIResponse:
                     execution_time=time.time() - start_time
                 )
         
+        # Mới: Kiểm tra mẫu XX_X hoặc X_XX
+        xxox_threat_move = Connect4AI.find_xxox_threats(game_state.board, game_state.current_player)
+        if xxox_threat_move is not None and xxox_threat_move in game_state.valid_moves:
+            return AIResponse(
+                move=xxox_threat_move,
+                evaluation=80,
+                depth=0,
+                execution_time=time.time() - start_time
+            )
+        
+        # Chạy minimax nếu không có nước đi ưu tiên
         score, best_move = Connect4AI.minimax(
             game_state.board,
             MAX_DEPTH,
