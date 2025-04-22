@@ -27,6 +27,17 @@ class AIResponse(BaseModel):
     depth: Optional[int] = None
     execution_time: Optional[float] = None
 
+class HealthResponse(BaseModel):
+    status: str
+    message: str
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint for Render deployment monitoring
+    """
+    return HealthResponse(status="ok", message="Service is running")
+
 @app.post("/api/connect4-move")
 async def make_move(game_state: GameState) -> AIResponse:
     try:
@@ -65,4 +76,6 @@ async def make_move(game_state: GameState) -> AIResponse:
         raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    import os
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
