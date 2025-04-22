@@ -444,33 +444,12 @@ public:
             }
         }
 
-        // Improved move ordering for better pruning efficiency
-        std::vector<std::pair<int, float>> move_scores;
-        for (int col : valid_moves) {
-            auto [new_board, row] = make_move(board, col, maximizing_player ? player : 3 - player);
-            if (row != -1) {
-                float score = static_cast<float>(evaluate_position(new_board, player));
-                move_scores.push_back({col, maximizing_player ? score : -score});
-            }
-        }
-        
-        // Sort moves by preliminary evaluation
-        std::sort(move_scores.begin(), move_scores.end(),
-                  [&](const auto& a, const auto& b) {
-                      return maximizing_player ? (a.second > b.second) : (a.second < b.second);
-                  });
-        
-        // Extract sorted columns
-        std::vector<int> sorted_moves;
-        for (const auto& move_score : move_scores) {
-            sorted_moves.push_back(move_score.first);
-        }
-        
+        // Using a simpler approach for move ordering
         if (maximizing_player) {
             float value = -std::numeric_limits<float>::infinity();
-            int best_move = sorted_moves.empty() ? -1 : sorted_moves[0];
+            int best_move = valid_moves.empty() ? -1 : valid_moves[0];
 
-            for (int col : sorted_moves) {
+            for (int col : valid_moves) {
                 auto [new_board, row] = make_move(board, col, player);
                 if (row == -1) continue;
                 
@@ -489,9 +468,9 @@ public:
             return {value, best_move};
         } else {
             float value = std::numeric_limits<float>::infinity();
-            int best_move = sorted_moves.empty() ? -1 : sorted_moves[0];
+            int best_move = valid_moves.empty() ? -1 : valid_moves[0];
 
-            for (int col : sorted_moves) {
+            for (int col : valid_moves) {
                 auto [new_board, row] = make_move(board, col, 3 - player);
                 if (row == -1) continue;
                 
