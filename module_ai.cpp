@@ -6,6 +6,9 @@
 #include <cmath>
 #include <tuple>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
+#include <iostream>
 
 namespace py = pybind11;
 
@@ -14,7 +17,7 @@ private:
     static constexpr int ROWS = 6;
     static constexpr int COLS = 7;
     static constexpr int WIN_LENGTH = 4;
-    static constexpr int MAX_DEPTH = 7;
+    static constexpr int MAX_DEPTH = 8;  // Tăng độ sâu từ 7 lên 8
 
 public:
     static int evaluate_window(const std::vector<int>& window, int player) {
@@ -372,12 +375,35 @@ public:
         
         auto start_time = std::chrono::high_resolution_clock::now();
 
+        // Tính toán số quân cờ trên bàn để xác định giai đoạn trò chơi
+        int piece_count = 0;
+        for (int r = 0; r < ROWS; r++) {
+            for (int c = 0; c < COLS; c++) {
+                if (board[r][c] != 0) {
+                    piece_count++;
+                }
+            }
+        }
+        
+        // Điều chỉnh độ sâu dựa trên giai đoạn trò chơi
+        int depth = MAX_DEPTH;
+        if (piece_count >= 30) {
+            depth = 10;  // Giai đoạn cuối, tăng độ sâu để chơi tốt hơn
+        }
+
         for (int col : valid_moves) {
             auto [new_board, row] = make_move(board, col, player);
             if (row != -1 && check_winner(new_board) == player) {
                 auto end_time = std::chrono::high_resolution_clock::now();
                 float duration = std::chrono::duration<float>(end_time - start_time).count();
-                return {col, 100, 0, duration};
+                
+                // Format thời gian chính xác hơn
+                std::ostringstream ss;
+                ss << std::fixed << std::setprecision(6) << duration;
+                std::string duration_str = ss.str();
+                float formatted_duration = std::stof(duration_str);
+                
+                return {col, 100000, 0, formatted_duration};
             }
         }
 
@@ -387,11 +413,21 @@ public:
             if (row != -1 && check_winner(new_board) == opponent) {
                 auto end_time = std::chrono::high_resolution_clock::now();
                 float duration = std::chrono::duration<float>(end_time - start_time).count();
-                return {col, -100, 0, duration};
+                
+                // Format thời gian chính xác hơn
+                std::ostringstream ss;
+                ss << std::fixed << std::setprecision(6) << duration;
+                std::string duration_str = ss.str();
+                float formatted_duration = std::stof(duration_str);
+                
+                return {col, -100000, 0, formatted_duration};
             }
         }
 
-        auto [score, best_move] = minimax(board, MAX_DEPTH, -std::numeric_limits<float>::infinity(),
+        // Bắt đầu thời gian thực thi thuật toán minimax
+        auto minimax_start_time = std::chrono::high_resolution_clock::now();
+        
+        auto [score, best_move] = minimax(board, depth, -std::numeric_limits<float>::infinity(),
                                           std::numeric_limits<float>::infinity(), true, player);
 
         if (best_move == -1 || std::find(valid_moves.begin(), valid_moves.end(), best_move) == valid_moves.end()) {
@@ -400,8 +436,20 @@ public:
 
         auto end_time = std::chrono::high_resolution_clock::now();
         float duration = std::chrono::duration<float>(end_time - start_time).count();
+        
+        // Format thời gian thực thi chính xác hơn
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(6) << duration;
+        std::string duration_str = ss.str();
+        float formatted_duration = std::stof(duration_str);
 
-        return {best_move, static_cast<int>(score), MAX_DEPTH, duration};
+        // Log thông tin về thời gian thực thi
+        std::cout << "Connect4AI: Độ sâu " << depth 
+                  << ", Nước đi " << best_move 
+                  << ", Điểm " << score
+                  << ", Thời gian " << formatted_duration << "s" << std::endl;
+
+        return {best_move, static_cast<int>(score), depth, formatted_duration};
     }
 };
 
