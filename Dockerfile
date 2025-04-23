@@ -25,7 +25,7 @@ RUN pip install pybind11
 COPY . .
 
 # Biên dịch module C++ thành module Python
-RUN c++ -O3 -Wall -shared -std=c++11 -fPIC \
+RUN c++ -O3 -Wall -shared -std=c++17 -fPIC \
     $(python3 -m pybind11 --includes) \
     module_ai.cpp -o module_ai$(python3-config --extension-suffix)
 

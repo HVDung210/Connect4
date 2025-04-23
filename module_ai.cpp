@@ -17,7 +17,7 @@ private:
     static constexpr int ROWS = 6;
     static constexpr int COLS = 7;
     static constexpr int WIN_LENGTH = 4;
-    static constexpr int MAX_DEPTH = 7;
+    static constexpr int MAX_DEPTH = 6;
 
 public:
     static int evaluate_window(const std::vector<int>& window, int player) {
@@ -423,9 +423,6 @@ public:
                 return {col, -100000, 0, formatted_duration};
             }
         }
-
-        // Bắt đầu thời gian thực thi thuật toán minimax
-        auto minimax_start_time = std::chrono::high_resolution_clock::now();
         
         auto [score, best_move] = minimax(board, depth, -std::numeric_limits<float>::infinity(),
                                           std::numeric_limits<float>::infinity(), true, player);
