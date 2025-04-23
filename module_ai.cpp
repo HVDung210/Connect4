@@ -28,7 +28,7 @@ private:
 
 public:
     // Window evaluation
-    static int evaluate_window(const std::vector<int>& window, int player) {
+    static int evaluate_window(const std::vector<int>& window, int player, bool is_diagonal = false) {
         int opponent = 3 - player;
         int score = 0;
     
@@ -64,11 +64,12 @@ public:
                 score += 1;
             }
             
-            // Đánh giá phòng thủ (với trọng số khác)
             if (opponent_count == 3 && empty_count == 1) {
-                score -= SCORE_THREE * 1.2; // Phòng thủ quan trọng hơn
-            } else if (opponent_count == 2 && empty_count == 2) {
-                score -= SCORE_TWO * 0.8;
+                if (is_diagonal) {  // Thêm tham số để nhận biết đây là cửa sổ chéo
+                    score -= SCORE_THREE * 1.5;  // Phạt nặng hơn đối với mối đe dọa chéo
+                } else {
+                    score -= SCORE_THREE * 1.2;
+                }
             }
         }
         
@@ -186,13 +187,36 @@ public:
         int opponent = 3 - player;
         auto lines = get_winning_lines();
         
+        // Đánh giá các đường chéo
+        for (const auto& line : lines) {
+            // Xác định xem đường này có phải đường chéo không
+            bool is_diagonal = false;
+            if (line.size() >= 2) {
+                int r0 = line[0].first;
+                int c0 = line[0].second;
+                int r1 = line[1].first;
+                int c1 = line[1].second;
+                if (abs(r1 - r0) == 1 && abs(c1 - c0) == 1) {
+                    is_diagonal = true;
+                }
+            }
+            
+            std::vector<int> window;
+            for (const auto& pos : line) {
+                window.push_back(board[pos.first][pos.second]);
+            }
+            
+            // Đánh giá cửa sổ với thông tin về kiểu đường
+            score += evaluate_window(window, player, is_diagonal);
+        }
+
         // Đánh giá tất cả các đường
         for (const auto& line : lines) {
             std::vector<int> window;
             for (const auto& pos : line) {
                 window.push_back(board[pos.first][pos.second]);
             }
-            score += evaluate_window(window, player);
+            score += evaluate_window(window, player, false);
         }
     
         // Ưu tiên cột giữa với trọng số giảm dần từ giữa ra ngoài
@@ -251,6 +275,45 @@ public:
         }
     
         return score;
+    }
+
+    static bool is_diagonal_threat(const std::vector<std::vector<int>>& board, int col, int player) {
+        int opponent = 3 - player;
+        int row = get_next_open_row(board, col);
+        if (row == -1) return false;
+        
+        // Kiểm tra 4 hướng chéo
+        const int dr[] = {-1, -1, 1, 1};
+        const int dc[] = {-1, 1, -1, 1};
+        
+        for (int dir = 0; dir < 4; dir++) {
+            int count = 0;
+            // Đếm quân của đối thủ theo hướng này
+            for (int i = 1; i <= 3; i++) {
+                int nr = row + dr[dir] * i;
+                int nc = col + dc[dir] * i;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    if (board[nr][nc] == opponent) count++;
+                    else break;
+                }
+            }
+            
+            // Đếm quân theo hướng ngược lại
+            for (int i = 1; i <= 3; i++) {
+                int nr = row - dr[dir] * i;
+                int nc = col - dc[dir] * i;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    if (board[nr][nc] == opponent) count++;
+                    else break;
+                }
+            }
+            
+            // Nếu tổng số quân đếm được >= 3, đây là mối đe dọa lớn
+            if (count >= 2) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static bool is_dangerous_board(const std::vector<std::vector<int>>& board, int player) {
