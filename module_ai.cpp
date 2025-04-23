@@ -763,10 +763,10 @@ public:
     }
 
     static int determine_depth(int piece_count) {
-        if (piece_count < 10) return 5;
-        else if (piece_count < 25) return 6;
-        else if (piece_count < 30) return 7;
-        else return 10; // Tăng độ sâu ở giai đoạn cuối
+        if (piece_count < 10) return 6;
+        else if (piece_count < 25) return 7;
+        else if (piece_count < 30) return 8;
+        else return 9; // Tăng độ sâu ở giai đoạn cuối
     }
 
     static std::tuple<int, int, int, float> get_best_move(
