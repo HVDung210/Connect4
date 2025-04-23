@@ -186,7 +186,80 @@ public:
             score += evaluate_window(window, player, is_diagonal, is_horizontal);
         }
         
-        // Phần còn lại của hàm evaluate_position...
+        // Phần còn lại của hàm evaluate_position
+        // Đánh giá chiến lược vị trí
+        
+        // 1. Ưu tiên các vị trí ở giữa bảng
+        for (int c = 0; c < COLS; c++) {
+            for (int r = 0; r < ROWS; r++) {
+                if (board[r][c] == player) {
+                    // Thưởng cho vị trí gần trung tâm
+                    int col_distance = abs(c - COLS/2);
+                    score += (3 - std::min(col_distance, 3)) * 2;
+                    
+                    // Thưởng cho các vị trí ở hàng giữa
+                    int row_center_distance = abs(r - ROWS/2);
+                    score += (3 - std::min(row_center_distance, 3)) * 1;
+                }
+            }
+        }
+        
+        // 2. Đánh giá khả năng phòng thủ
+        int opponent = 3 - player;
+        int opponent_threats = 0;
+        
+        for (int c = 0; c < COLS; c++) {
+            auto [new_board, row] = make_move(board, c, opponent);
+            if (row != -1 && check_winner(new_board) == opponent) {
+                opponent_threats++;
+            }
+        }
+        
+        // Trừ điểm nếu có nhiều đe dọa từ đối thủ
+        score -= opponent_threats * 200;
+        
+        // 3. Đánh giá khả năng kiểm soát
+        int control_score = 0;
+        for (int c = 0; c < COLS; c++) {
+            int player_pieces = 0;
+            int opponent_pieces = 0;
+            
+            for (int r = 0; r < ROWS; r++) {
+                if (board[r][c] == player) player_pieces++;
+                else if (board[r][c] == opponent) opponent_pieces++;
+            }
+            
+            // Thưởng cho việc kiểm soát cột
+            if (player_pieces > opponent_pieces) {
+                control_score += 5 * (player_pieces - opponent_pieces);
+            }
+        }
+        
+        score += control_score;
+        
+        // 4. Thưởng cho các mẫu chiến thuật đặc biệt
+        for (int r = 0; r < ROWS-1; r++) {
+            for (int c = 0; c < COLS-1; c++) {
+                // Mẫu hình chữ L (L-shape pattern)
+                if (r+2 < ROWS && c+1 < COLS) {
+                    if (board[r][c] == player && 
+                        board[r+1][c] == player && 
+                        board[r+2][c] == 0 && 
+                        board[r+2][c+1] == 0) {
+                        score += 25;
+                    }
+                }
+                
+                // Mẫu đường dốc (Slope pattern)
+                if (r+2 < ROWS && c+2 < COLS) {
+                    if (board[r][c] == player && 
+                        board[r+1][c+1] == player && 
+                        board[r+2][c+2] == 0) {
+                        score += 30;
+                    }
+                }
+            }
+        }
         
         return score;
     }
@@ -220,8 +293,38 @@ public:
             
             if (count >= 3) return true; // Nguy hiểm nếu đối thủ đã có 3+ quân liên tiếp
             
-            // Tương tự, kiểm tra các hướng chéo
-            // (code tương tự như trên nhưng cho đường chéo)
+            // Kiểm tra các hướng chéo
+            // Chéo xuống bên phải
+            count = 1;
+            for (int i = 1; i < 4; i++) {
+                int r = opp_row + i;
+                int c = col + i;
+                if (r < ROWS && c < COLS && opp_board[r][c] == opponent) count++;
+                else break;
+            }
+            for (int i = 1; i < 4; i++) {
+                int r = opp_row - i;
+                int c = col - i;
+                if (r >= 0 && c >= 0 && opp_board[r][c] == opponent) count++;
+                else break;
+            }
+            if (count >= 3) return true;
+            
+            // Chéo xuống bên trái
+            count = 1;
+            for (int i = 1; i < 4; i++) {
+                int r = opp_row + i;
+                int c = col - i;
+                if (r < ROWS && c >= 0 && opp_board[r][c] == opponent) count++;
+                else break;
+            }
+            for (int i = 1; i < 4; i++) {
+                int r = opp_row - i;
+                int c = col + i;
+                if (r >= 0 && c < COLS && opp_board[r][c] == opponent) count++;
+                else break;
+            }
+            if (count >= 3) return true;
         }
         
         return false;
@@ -322,7 +425,7 @@ public:
         for (int c = 0; c < COLS-1; c++) {
             if (c > 0) {
                 // Kiểm tra mẫu "trapping pattern" như .O.
-                                                      //OXO
+                                                  //OXO
                 int r = get_next_open_row(board, c);
                 if (r <= ROWS-2 && r >= 0) {
                     if (c > 0 && c < COLS-1) {
@@ -333,6 +436,69 @@ public:
                             board[r][c+1] == 0) {
                             return true;
                         }
+                    }
+                }
+                
+                // Thêm mẫu bẫy mới: Thế tấn công hai phía (Sandwich attack)
+                // X O . O X (với X là đối thủ, O là người chơi, . là vị trí trống)
+                if (c > 1 && c < COLS-2) {
+                    int r = get_next_open_row(board, c);
+                    if (r >= 0) {
+                        if (board[r][c-2] == opponent && 
+                            board[r][c-1] == player && 
+                            board[r][c+1] == player && 
+                            board[r][c+2] == opponent) {
+                            return true;
+                        }
+                    }
+                }
+                
+                // Mẫu bẫy: Đường chéo tạo thành cổng (Diagonal gate)
+                if (c > 0 && c < COLS-2 && r < ROWS-2 && r > 0) {
+                    int r = get_next_open_row(board, c);
+                    if (r >= 0) {
+                        if (board[r+1][c-1] == opponent && 
+                            board[r+1][c+1] == opponent && 
+                            board[r+2][c] == opponent) {
+                            return true;
+                        }
+                    }
+                }
+                
+                // Mẫu bẫy: Kiểm tra bẫy "7" (7-trap)
+                if (c < COLS-3 && r < ROWS-3 && r >= 0) {
+                    int r = get_next_open_row(board, c);
+                    if (r >= 0) {
+                        if (board[r][c+1] == opponent && 
+                            board[r][c+2] == opponent && 
+                            board[r+1][c] == opponent && 
+                            board[r+2][c] == opponent) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 3. Kiểm tra thế "bẫy chiến thuật tiếp theo" (next move trap)
+        // Đối thủ có thể tạo thế 2 vị trí đe dọa trong nước đi tiếp theo
+        for (int c = 0; c < COLS; c++) {
+            auto [new_board, row] = make_move(board, c, opponent);
+            if (row == -1) continue;
+            
+            int next_threat_count = 0;
+            for (int next_c = 0; next_c < COLS; next_c++) {
+                auto [next_board, next_row] = make_move(new_board, next_c, opponent);
+                if (next_row != -1) {
+                    // Đếm số vị trí đe dọa sau 2 nước đi
+                    for (int test_c = 0; test_c < COLS; test_c++) {
+                        auto [test_board, test_row] = make_move(next_board, test_c, opponent);
+                        if (test_row != -1 && check_winner(test_board) == opponent) {
+                            next_threat_count++;
+                        }
+                    }
+                    if (next_threat_count >= 3) {
+                        return true;
                     }
                 }
             }
@@ -428,7 +594,43 @@ public:
                     score -= 50000; // Penalty rất lớn cho nước tự sát
                 }
                 
-                // Phần còn lại của hàm đánh giá nước đi...
+                // Phần còn lại của hàm đánh giá nước đi
+                if (player != 0) {
+                    // Simulate the move and evaluate position
+                    auto [new_board, row] = make_move(board, c, player);
+                    if (row != -1) {
+                        // Add score for creating threats
+                        score += count_open_threes(new_board, player) * 100;
+                        
+                        // Penalize moves that set up opponent
+                        if (is_setting_up_opponent(board, c, player)) {
+                            score -= 5000;
+                        }
+                        
+                        // Prefer moves that block diagonal threats
+                        if (is_diagonal_threat(board, c, player)) {
+                            score += 200;
+                        }
+                        
+                        // Check if move causes dangerous board
+                        if (is_dangerous_board(new_board, player)) {
+                            score -= 3000;
+                        }
+                        
+                        // Bonus for moves that create multiple threats
+                        int threat_count = 0;
+                        for (int test_col = 0; test_col < COLS; test_col++) {
+                            auto [test_board, test_row] = make_move(new_board, test_col, player);
+                            if (test_row != -1 && check_winner(test_board) == player) {
+                                threat_count++;
+                            }
+                        }
+                        score += threat_count * 300;
+                        
+                        // Use the full position evaluation
+                        score += evaluate_position(new_board, player) / 10;
+                    }
+                }
                 
                 scored_moves.push_back({c, score});
             }
@@ -469,13 +671,13 @@ public:
 
     // Minimax with alpha-beta pruning
     static std::pair<float, int> minimax(
-            const std::vector<std::vector<int>>& board, 
-            int depth, 
-            float alpha, 
-            float beta, 
-            bool maximizing_player, 
-            int player) {
-        
+        const std::vector<std::vector<int>>& board, 
+        int depth, 
+        float alpha, 
+        float beta, 
+        bool maximizing_player, 
+        int player) {
+    
         bool is_terminal = is_terminal_node(board);
         if (depth == 0 || is_terminal) {
             if (is_terminal) {
@@ -492,7 +694,26 @@ public:
             }
         }
         
+        // Improved move ordering - tính nhanh các nước đi đầy tiềm năng trước
         auto valid_moves = get_valid_moves(board, maximizing_player ? player : 3-player);
+        
+        // Thêm kiểm tra cắt tỉa nhanh (killers and history heuristic)
+        // Kiểm tra xem có nước đi ngay lập tức tạo thành thắng/thua
+        if (maximizing_player) {
+            for (int col : valid_moves) {
+                auto [new_board, row] = make_move(board, col, player);
+                if (row != -1 && check_winner(new_board) == player) {
+                    return {SCORE_WIN * 10, col}; // Trả về ngay nếu tìm thấy nước thắng
+                }
+            }
+        } else {
+            for (int col : valid_moves) {
+                auto [new_board, row] = make_move(board, col, 3 - player);
+                if (row != -1 && check_winner(new_board) == 3 - player) {
+                    return {-SCORE_WIN * 10, col}; // Trả về ngay nếu tìm thấy nước thua
+                }
+            }
+        }
         
         if (maximizing_player) {
             float value = -std::numeric_limits<float>::infinity();
@@ -573,6 +794,22 @@ public:
             return {-1, 0, 0, 0.0f};
         }
         
+        // Opening book moves (first few moves)
+        if (piece_count <= 2) {
+            // Mở đầu: ưu tiên cột giữa hoặc gần giữa
+            int middle_col = COLS / 2;
+            if (std::find(valid_moves.begin(), valid_moves.end(), middle_col) != valid_moves.end()) {
+                auto end_time = std::chrono::high_resolution_clock::now();
+                float duration = std::chrono::duration<float>(end_time - start_time).count();
+                std::ostringstream ss;
+                ss << std::fixed << std::setprecision(6) << duration;
+                float formatted_duration = std::stof(ss.str());
+                std::cout << timestamp << " Connect4AI: Using opening book, middle column " << middle_col 
+                          << ", Time: " << formatted_duration << "s" << std::endl;
+                return {middle_col, SCORE_CENTER, 1, formatted_duration};
+            }
+        }
+        
         // Check instant wins and blocks first
         for (int col : valid_moves) {
             auto [new_board, row] = make_move(board, col, player);
@@ -630,6 +867,88 @@ public:
                           << " (winning moves: " << winning_columns[0] << ", " << winning_columns[1]
                           << "), Time: " << formatted_duration << "s" << std::endl;
                 return {col, SCORE_WIN/4, 2, formatted_duration};
+            }
+        }
+        
+        // New: Check for prevention of opponent's dual threats
+        for (int col : valid_moves) {
+            auto [temp_board, row] = make_move(board, col, player);
+            if (row == -1) continue;
+            
+            bool found_dual_threat = false;
+            
+            // Kiểm tra xem đối thủ có thể tạo ra dual threat trong nước đi tiếp theo không
+            for (int opp_col : valid_moves) {
+                if (opp_col == col) continue;
+                
+                auto [opp_board, opp_row] = make_move(board, opp_col, opponent);
+                if (opp_row == -1) continue;
+                
+                int winning_moves = 0;
+                for (int next_col : valid_moves) {
+                    if (next_col == opp_col) continue;
+                    
+                    auto [next_board, next_row] = make_move(opp_board, next_col, opponent);
+                    if (next_row != -1 && check_winner(next_board) == opponent) {
+                        winning_moves++;
+                    }
+                }
+                
+                if (winning_moves >= 2) {
+                    found_dual_threat = true;
+                    break;
+                }
+            }
+            
+            // Nếu sau nước đi của chúng ta, đối thủ không thể tạo dual threat
+            // thì đây là nước đi tốt để ngăn chặn đối thủ
+            if (!found_dual_threat) {
+                auto end_time = std::chrono::high_resolution_clock::now();
+                float duration = std::chrono::duration<float>(end_time - start_time).count();
+                std::ostringstream ss;
+                ss << std::fixed << std::setprecision(6) << duration;
+                float formatted_duration = std::stof(ss.str());
+                std::cout << timestamp << " Connect4AI: Preventing opponent's dual threat at column " << col 
+                          << ", Time: " << formatted_duration << "s" << std::endl;
+                return {col, SCORE_WIN/5, 2, formatted_duration};
+            }
+        }
+        
+        // New: Check for creating potential trap setups
+        for (int col : valid_moves) {
+            auto [temp_board, row] = make_move(board, col, player);
+            if (row == -1) continue;
+            
+            // Kiểm tra nếu nước đi này tạo ra một "trap" (bẫy)
+            int threat_count = 0;
+            
+            // Kiểm tra mẫu "bẫy chữ V" (v-trap) hoặc "bẫy chữ X" (x-trap)
+            if (row > 0) {  // Có thể đặt thêm quân phía trên
+                for (int c = 0; c < COLS; c++) {
+                    if (c == col) continue;
+                    
+                    auto [next_board, next_row] = make_move(temp_board, c, player);
+                    if (next_row != -1) {
+                        for (int final_c = 0; final_c < COLS; final_c++) {
+                            auto [final_board, final_row] = make_move(next_board, final_c, player);
+                            if (final_row != -1 && check_winner(final_board) == player) {
+                                threat_count++;
+                            }
+                        }
+                    }
+                }
+                
+                // Nếu có đủ đe dọa (tối thiểu 3 vị trí có thể thắng)
+                if (threat_count >= 3) {
+                    auto end_time = std::chrono::high_resolution_clock::now();
+                    float duration = std::chrono::duration<float>(end_time - start_time).count();
+                    std::ostringstream ss;
+                    ss << std::fixed << std::setprecision(6) << duration;
+                    float formatted_duration = std::stof(ss.str());
+                    std::cout << timestamp << " Connect4AI: Creating trap setup at column " << col 
+                              << " (threats: " << threat_count << "), Time: " << formatted_duration << "s" << std::endl;
+                    return {col, SCORE_WIN/6, 2, formatted_duration};
+                }
             }
         }
         
