@@ -419,7 +419,7 @@ public:
         } else if (piece_count >= 30) {
             depth = 10; // Giai đoạn cuối
         } else if (piece_count < 15) {
-            depth = 4; // Giai đoạn đầu
+            depth = 5; // Giai đoạn đầu
         }
     
         // Iterative Deepening
