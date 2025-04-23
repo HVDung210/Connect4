@@ -374,79 +374,86 @@ public:
         const std::vector<std::vector<int>>& board, int player, const std::vector<int>& valid_moves) {
         
         auto start_time = std::chrono::high_resolution_clock::now();
-
-        // Tính toán số quân cờ trên bàn để xác định giai đoạn trò chơi
+    
+        // Đếm số quân cờ
         int piece_count = 0;
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
-                if (board[r][c] != 0) {
-                    piece_count++;
-                }
+                if (board[r][c] != 0) piece_count++;
             }
         }
-        
-        // Điều chỉnh độ sâu dựa trên giai đoạn trò chơi
-        int depth = MAX_DEPTH;
-        if (piece_count >= 30) {
-            depth = 10;  // Giai đoạn cuối, tăng độ sâu để chơi tốt hơn
-        }
-
+    
+        // Kiểm tra nước đi thắng ngay lập tức
         for (int col : valid_moves) {
             auto [new_board, row] = make_move(board, col, player);
             if (row != -1 && check_winner(new_board) == player) {
                 auto end_time = std::chrono::high_resolution_clock::now();
                 float duration = std::chrono::duration<float>(end_time - start_time).count();
-                
-                // Format thời gian chính xác hơn
                 std::ostringstream ss;
                 ss << std::fixed << std::setprecision(6) << duration;
-                std::string duration_str = ss.str();
-                float formatted_duration = std::stof(duration_str);
-                
-                return {col, 100000, 0, formatted_duration};
+                return {col, 100000, 0, std::stof(ss.str())};
             }
         }
-
+    
+        // Kiểm tra nước đi chặn đối thủ
         int opponent = 3 - player;
         for (int col : valid_moves) {
             auto [new_board, row] = make_move(board, col, opponent);
             if (row != -1 && check_winner(new_board) == opponent) {
                 auto end_time = std::chrono::high_resolution_clock::now();
                 float duration = std::chrono::duration<float>(end_time - start_time).count();
-                
-                // Format thời gian chính xác hơn
                 std::ostringstream ss;
                 ss << std::fixed << std::setprecision(6) << duration;
-                std::string duration_str = ss.str();
-                float formatted_duration = std::stof(duration_str);
-                
-                return {col, -100000, 0, formatted_duration};
+                return {col, -100000, 0, std::stof(ss.str())};
             }
         }
-        
-        auto [score, best_move] = minimax(board, depth, -std::numeric_limits<float>::infinity(),
-                                          std::numeric_limits<float>::infinity(), true, player);
-
-        if (best_move == -1 || std::find(valid_moves.begin(), valid_moves.end(), best_move) == valid_moves.end()) {
-            best_move = valid_moves[0];
+    
+        // Xác định độ sâu dựa trên giai đoạn và chuỗi 3
+        int player_threes = count_open_threes(board, player);
+        int opponent_threes = count_open_threes(board, opponent);
+        int depth = MAX_DEPTH;
+        if (player_threes >= 1 || opponent_threes >= 1) {
+            depth += 2; // Tăng độ sâu khi có cơ hội hoặc nguy cơ
+        } else if (valid_moves.size() <= 3) {
+            depth += 2; // Tăng độ sâu khi ít nước đi
+        } else if (piece_count >= 30) {
+            depth = 10; // Giai đoạn cuối
+        } else if (piece_count < 15) {
+            depth = 4; // Giai đoạn đầu
         }
-
+    
+        // Iterative Deepening
+        float time_limit = 1.0f; // Giới hạn 1 giây
+        int best_move = valid_moves[0];
+        float best_score = -std::numeric_limits<float>::infinity();
+        for (int d = 1; d <= depth; ++d) {
+            auto [score, move] = minimax(board, d, -std::numeric_limits<float>::infinity(),
+                                         std::numeric_limits<float>::infinity(), true, player);
+            if (move != -1 && std::find(valid_moves.begin(), valid_moves.end(), move) != valid_moves.end()) {
+                best_score = score;
+                best_move = move;
+            }
+    
+            auto current_time = std::chrono::high_resolution_clock::now();
+            float elapsed = std::chrono::duration<float>(current_time - start_time).count();
+            if (elapsed >= time_limit) {
+                break;
+            }
+        }
+    
         auto end_time = std::chrono::high_resolution_clock::now();
         float duration = std::chrono::duration<float>(end_time - start_time).count();
-        
-        // Format thời gian thực thi chính xác hơn
         std::ostringstream ss;
         ss << std::fixed << std::setprecision(6) << duration;
         std::string duration_str = ss.str();
         float formatted_duration = std::stof(duration_str);
-
-        // Log thông tin về thời gian thực thi
+    
         std::cout << "Connect4AI: Độ sâu " << depth 
                   << ", Nước đi " << best_move 
-                  << ", Điểm " << score
+                  << ", Điểm " << best_score
                   << ", Thời gian " << formatted_duration << "s" << std::endl;
-
-        return {best_move, static_cast<int>(score), depth, formatted_duration};
+    
+        return {best_move, static_cast<int>(best_score), depth, formatted_duration};
     }
 };
 
