@@ -17,7 +17,7 @@ private:
     static constexpr int ROWS = 6;
     static constexpr int COLS = 7;
     static constexpr int WIN_LENGTH = 4;
-    static constexpr int MAX_DEPTH = 6;
+    static constexpr int MAX_DEPTH = 7;
 
 public:
     static int evaluate_window(const std::vector<int>& window, int player) {
