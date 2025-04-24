@@ -408,35 +408,63 @@ public:
             }
         }
     
-        // Xác định độ sâu dựa trên giai đoạn và chuỗi 3
+        // Xác định độ sâu dựa trên giai đoạn và tình huống
         int player_threes = count_open_threes(board, player);
         int opponent_threes = count_open_threes(board, opponent);
-        int depth = MAX_DEPTH;
-        if (player_threes >= 1 || opponent_threes >= 1) {
-            depth += 2; // Tăng độ sâu khi có cơ hội hoặc nguy cơ
-        } else if (valid_moves.size() <= 3) {
-            depth += 2; // Tăng độ sâu khi ít nước đi
-        } else if (piece_count >= 30) {
-            depth = 10; // Giai đoạn cuối
-        } else if (piece_count < 15) {
-            depth = 5; // Giai đoạn đầu
+        int depth = 0;
+        
+        // Sử dụng piece_count để xác định giai đoạn của trò chơi
+        if (piece_count <= 10) {
+            // Giai đoạn đầu: Độ sâu thấp để tính toán nhanh
+            depth = 5;
+        } else if (piece_count <= 20) {
+            // Giai đoạn giữa: Độ sâu trung bình
+            depth = 7;
+        } else if (piece_count <= 30) {
+            // Giai đoạn gần cuối: Độ sâu cao
+            depth = 8;
+        } else {
+            // Giai đoạn cuối: Tìm kiếm sâu nhất
+            depth = 10;
         }
+        
+        // Điều chỉnh độ sâu dựa trên tình huống đặc biệt
+        if (player_threes >= 2 || opponent_threes >= 2) {
+            // Tình huống nguy hiểm/cơ hội, tăng độ sâu đáng kể
+            depth += 3;
+        } else if (player_threes == 1 || opponent_threes == 1) {
+            // Có thể có cơ hội/nguy cơ, tăng độ sâu vừa phải
+            depth += 2;
+        }
+        
+        // Nếu số nước đi có thể ít, tăng độ sâu để tìm giải pháp tối ưu
+        if (valid_moves.size() <= 3) {
+            depth += 2;
+        }
+        
+        // Giới hạn độ sâu tối đa để tránh tính toán quá lâu
+        const int MAX_ALLOWED_DEPTH = 12;
+        depth = std::min(depth, MAX_ALLOWED_DEPTH);
     
         // Iterative Deepening
         float time_limit = 1.0f; // Giới hạn 1 giây
         int best_move = valid_moves[0];
         float best_score = -std::numeric_limits<float>::infinity();
+        int reached_depth = 0;
+        
         for (int d = 1; d <= depth; ++d) {
             auto [score, move] = minimax(board, d, -std::numeric_limits<float>::infinity(),
                                          std::numeric_limits<float>::infinity(), true, player);
             if (move != -1 && std::find(valid_moves.begin(), valid_moves.end(), move) != valid_moves.end()) {
                 best_score = score;
                 best_move = move;
+                reached_depth = d;
             }
     
             auto current_time = std::chrono::high_resolution_clock::now();
             float elapsed = std::chrono::duration<float>(current_time - start_time).count();
             if (elapsed >= time_limit) {
+                std::cout << "Time limit reached at depth " << d << std::endl;
                 break;
             }
         }
@@ -448,12 +476,13 @@ public:
         std::string duration_str = ss.str();
         float formatted_duration = std::stof(duration_str);
     
-        std::cout << "Connect4AI: Độ sâu " << depth 
+        std::cout << "Connect4AI: Mục tiêu độ sâu " << depth 
+                  << ", Đạt độ sâu " << reached_depth
                   << ", Nước đi " << best_move 
                   << ", Điểm " << best_score
                   << ", Thời gian " << formatted_duration << "s" << std::endl;
     
-        return {best_move, static_cast<int>(best_score), depth, formatted_duration};
+        return {best_move, static_cast<int>(best_score), reached_depth, formatted_duration};
     }
 };
 
