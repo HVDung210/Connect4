@@ -1,152 +1,183 @@
-# Connect 4 AI API
+# Connect4 AI
 
-Ứng dụng API cho phép tích hợp thuật toán AI vào hệ thống Connect 4.
+Một trí tuệ nhân tạo chơi game Connect4 được xây dựng bằng Python và C++, sử dụng thuật toán Minimax với Alpha-Beta Pruning.
 
-## API Endpoint
+## Tính năng
 
-Sau khi triển khai API của bạn, bạn sẽ cần cung cấp URL endpoint cho server chính:
-```
-https://your-ai-service.com
-```
+- AI thông minh sử dụng thuật toán Minimax với Alpha-Beta Pruning
+- Tối ưu hóa hiệu suất bằng C++ thông qua pybind11
+- API RESTful được xây dựng bằng FastAPI
+- Hỗ trợ Docker để triển khai dễ dàng
+- Tự động điều chỉnh độ sâu tìm kiếm dựa trên tình huống game
+- Xử lý các trường hợp đặc biệt như nước đi thắng ngay lập tức
 
-### Ví dụ URL sau khi triển khai bằng Ngrok:
-```
-https://c3b1-2405-4802-21ad-48b0-7c4a-8729-ca-4c80.ngrok-free.app
-```
+## Yêu cầu hệ thống
 
-## Format API
+- Python 3.13+
+- C++ compiler với hỗ trợ C++17
+- CMake
+- Docker (tùy chọn)
 
-### Request Format
-```json
-{
-  "board": [[0,0,0,...], [...], ...],
-  "current_player": 1,
-  "valid_moves": [0,1,2,...]
-}
-```
+## Cài đặt
 
-Trong đó:
-- `board`: Mảng 2 chiều (6x7) biểu diễn bảng Connect 4
-  - `0`: Ô trống
-  - `1`: Quân của người chơi 1
-  - `2`: Quân của người chơi 2
-- `current_player`: Người chơi hiện tại (1 hoặc 2)
-- `valid_moves`: Các cột còn có thể đặt quân (từ 0-6)
+### Cài đặt trực tiếp
 
-### Response Format
-```json
-{
-  "move": 3
-}
+1. Clone repository:
+```bash
+git clone <repository-url>
+cd connect4
 ```
 
-Trong đó:
-- `move`: Cột mà AI quyết định đặt quân (chỉ số từ 0-6)
-
-Ví dụ: Nếu API trả về `move = 3`, server sẽ đặt quân vào ô trống thấp nhất của cột thứ 4 (vì chỉ số bắt đầu từ 0).
-
-## Triển khai API
-
-### Cài đặt thư viện
+2. Cài đặt các dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### File app.py
-```python
-from fastapi import FastAPI, HTTPException
-import random
-import uvicorn
-from pydantic import BaseModel
-from typing import List, Optional
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-class GameState(BaseModel):
-    board: List[List[int]]
-    current_player: int
-    valid_moves: List[int]
-
-class AIResponse(BaseModel):
-    move: int
-
-@app.post("/api/connect4-move")
-async def make_move(game_state: GameState) -> AIResponse:
-    try:
-        if not game_state.valid_moves:
-            raise ValueError("Không có nước đi hợp lệ")
-            
-        # TODO: Thay thế mã này bằng thuật toán AI của bạn
-        selected_move = random.choice(game_state.valid_moves)
-        
-        return AIResponse(move=selected_move)
-    except Exception as e:
-        if game_state.valid_moves:
-            return AIResponse(move=game_state.valid_moves[0])
-        raise HTTPException(status_code=400, detail=str(e))
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
-```
-
-### Chạy server
+3. Biên dịch module C++:
 ```bash
-python app.py
+python setup.py build_ext --inplace
 ```
 
-## Triển khai public với Ngrok
+### Sử dụng Docker
 
-Để server của bạn có thể truy cập được từ internet, bạn có thể sử dụng Ngrok:
-
-1. Tải và cài đặt Ngrok: https://ngrok.com/download
-2. Chạy server FastAPI của bạn (mặc định cổng 8080)
-3. Trong terminal khác, chạy lệnh:
+1. Build Docker image:
 ```bash
-ngrok http 8080
-```
-4. Sao chép URL Forwarding (dạng https://xxxx-xxxx.ngrok-free.app) và đăng ký với server chính.
-
-## Phát triển thuật toán AI
-
-Để cải thiện AI của bạn, hãy thay thế đoạn mã sau trong hàm `make_move`:
-
-```python
-# TODO: Thay thế mã này bằng thuật toán AI của bạn
-selected_move = random.choice(game_state.valid_moves)
+docker build -t connect4-ai .
 ```
 
-Bạn có thể cài đặt các thuật toán như Minimax, Alpha-Beta Pruning, hoặc các kỹ thuật Machine Learning để cải thiện khả năng chơi của AI.
+2. Chạy container:
+```bash
+docker run -p 8080:8080 connect4-ai
+```
 
-## Ví dụ Game State
+## Sử dụng API
 
+API cung cấp các endpoint sau:
+
+### Health Check
+```http
+GET /health
+```
+Kiểm tra trạng thái hoạt động của service.
+
+### Lấy nước đi từ AI
+```http
+POST /api/connect4-move
+```
+
+Request body:
 ```json
 {
-  "board": [
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0]
-  ],
-  "current_player": 1,
-  "valid_moves": [0, 1, 2, 3, 4, 5, 6]
+    "board": [[0,0,0,0,0,0,0], ...],  // 6x7 matrix
+    "current_player": 1,              // 1 hoặc 2
+    "valid_moves": [0,1,2,3,4,5,6],  // Các cột có thể đi
+    "is_new_game": false             // Tùy chọn
 }
 ```
 
-## Lưu ý
+Response:
+```json
+{
+    "move": 3,           // Cột được chọn (0-6)
+    "evaluation": 100,   // Đánh giá vị trí
+    "depth": 5,         // Độ sâu tìm kiếm
+    "execution_time": 0.123  // Thời gian tính toán (giây)
+}
+```
 
-- API của bạn sẽ tự động nhận dữ liệu từ server và chuyển đổi thành đối tượng `GameState`
-- Bạn chỉ cần tập trung vào việc phát triển thuật toán AI để chọn nước đi tốt nhất
-- Đảm bảo API của bạn luôn trả về một nước đi hợp lệ (nằm trong danh sách `valid_moves`)
-- Nếu xảy ra lỗi, API sẽ tự động chọn nước đi đầu tiên trong danh sách `valid_moves`
-``` 
+## Cấu trúc dự án
+
+- `app.py`: FastAPI server và xử lý logic game
+- `module_ai.cpp`: Module C++ chứa thuật toán AI
+- `setup.py`: Cấu hình build cho module C++
+- `Dockerfile`: Cấu hình Docker
+- `requirements.txt`: Python dependencies
+
+## Thuật toán AI
+
+### Thuật toán Minimax với Alpha-Beta Pruning
+
+AI sử dụng thuật toán Minimax với Alpha-Beta Pruning, một phương pháp tìm kiếm theo chiều sâu trong không gian trạng thái của game. Thuật toán này hoạt động bằng cách:
+
+1. **Tìm kiếm theo chiều sâu**: Duyệt qua các nước đi có thể xảy ra trong tương lai
+2. **Đánh giá vị trí**: Sử dụng hàm heuristic để đánh giá lợi thế của mỗi vị trí
+3. **Cắt tỉa Alpha-Beta**: Loại bỏ các nhánh không cần thiết để tăng hiệu suất
+
+### Các tối ưu hóa
+
+1. **Điều chỉnh độ sâu thông minh**:
+   - Giai đoạn đầu (≤10 quân): độ sâu 5
+   - Giai đoạn giữa (≤20 quân): độ sâu 7
+   - Giai đoạn cuối (≤30 quân): độ sâu 8-10
+   - Tăng thêm 2-3 độ sâu khi phát hiện mối đe dọa/cơ hội
+
+2. **Hàm đánh giá nâng cao**:
+   - Ưu tiên vị trí trung tâm (điểm cao hơn cho cột 3,4)
+   - Phát hiện và đánh giá các cửa sổ 4 ô liên tiếp
+   - Xử lý đặc biệt cho "open three" (3 quân liên tiếp có thể thắng)
+   - Phân tích mối đe dọa từ đối thủ
+
+3. **Xử lý trường hợp đặc biệt**:
+   - Kiểm tra nước đi thắng ngay lập tức
+   - Chặn nước đi thắng của đối thủ
+   - Ưu tiên nước đi trung tâm trong ván mới
+
+### Ưu điểm
+
+1. **Hiệu quả cao**:
+   - Tìm được nước đi tối ưu trong thời gian hợp lý
+   - Cắt tỉa Alpha-Beta giảm đáng kể số lượng nút cần xét
+   - Tự động điều chỉnh độ sâu phù hợp với tình huống
+
+2. **Thông minh và linh hoạt**:
+   - Có thể xử lý nhiều tình huống phức tạp
+   - Học hỏi từ các mẫu thắng/thua
+   - Thích nghi với phong cách chơi của đối thủ
+
+3. **Hiệu suất tốt**:
+   - Tối ưu hóa bằng C++ thông qua pybind11
+   - Thời gian phản hồi nhanh (thường < 1 giây)
+   - Sử dụng ít tài nguyên hệ thống
+
+### Nhược điểm
+
+1. **Giới hạn tính toán**:
+   - Không thể xem xét tất cả các khả năng trong trò chơi
+   - Độ sâu tìm kiếm bị giới hạn bởi thời gian
+   - Có thể bỏ sót các nước đi tốt ở độ sâu lớn
+
+2. **Phụ thuộc vào hàm đánh giá**:
+   - Chất lượng phụ thuộc vào độ chính xác của hàm heuristic
+   - Có thể đánh giá sai trong một số tình huống đặc biệt
+   - Khó tinh chỉnh các tham số đánh giá
+
+3. **Không có khả năng học**:
+   - Không cải thiện qua thời gian
+   - Không thể học từ các ván đã chơi
+   - Cần cập nhật thủ công các tham số
+
+### So sánh với các phương pháp khác
+
+1. **So với Monte Carlo Tree Search (MCTS)**:
+   - Minimax: Tìm kiếm có định hướng, hiệu quả cho game có luật rõ ràng
+   - MCTS: Tìm kiếm ngẫu nhiên, tốt cho game phức tạp và không gian trạng thái lớn
+   - Kết luận: Minimax phù hợp hơn cho Connect4 do luật game đơn giản và không gian trạng thái có thể quản lý được
+
+2. **So với Deep Learning**:
+   - Minimax: Dựa trên quy tắc và tìm kiếm, không cần dữ liệu huấn luyện
+   - Deep Learning: Cần nhiều dữ liệu huấn luyện, có thể học các chiến thuật phức tạp
+   - Kết luận: Minimax đơn giản và hiệu quả hơn cho Connect4, trong khi Deep Learning có thể quá phức tạp không cần thiết
+
+3. **So với Rule-based AI**:
+   - Minimax: Tìm kiếm động và thích nghi với tình huống
+   - Rule-based: Dựa trên các quy tắc cố định, dễ dự đoán
+   - Kết luận: Minimax linh hoạt và mạnh mẽ hơn, có thể xử lý nhiều tình huống phức tạp
+
+### Kết luận
+
+Thuật toán Minimax với Alpha-Beta Pruning là lựa chọn tối ưu cho Connect4 AI vì:
+- Phù hợp với không gian trạng thái của game
+- Có thể tìm được nước đi tốt trong thời gian hợp lý
+- Dễ dàng tối ưu hóa và tinh chỉnh
+- Không yêu cầu dữ liệu huấn luyện hay tài nguyên tính toán lớn
+
